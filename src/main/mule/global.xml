@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<db:config name="Database_Config_Derby" doc:name="Database Config" doc:id="a1570e08-8ebe-4ab3-8e9d-5a06235f80d2" >
+		<db:derby-connection database="myinternaldb2" create="true" />
+	</db:config>
+	<file:config name="File_config_test_folder" doc:name="File Config" doc:id="20943ef1-6ccb-4c4d-8f69-a27def79b241" >
+		<file:connection workingDir="C:\test" />
+	</file:config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="e42fc20c-303c-41a0-ad0f-b89c467fa521" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+
+	
+	</mule>

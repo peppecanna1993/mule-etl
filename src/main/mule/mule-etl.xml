@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<flow name="mule-etlFlow" doc:id="f9801c72-9965-4270-8fb0-d810cf9cfc35" initialState="started">
+		<file:listener doc:name="import.csv" doc:id="02f8329d-1e8b-4d4d-881c-bf7a02b02fac" config-ref="File_config_test_folder" directory="C:\test\incoming" moveToDirectory="C:\test\processed">
+			<scheduling-strategy >
+				<fixed-frequency frequency="3000"/>
+			</scheduling-strategy>
+			<file:matcher filenamePattern="*.csv"/>
+		</file:listener>
+		<logger level="INFO" doc:name="Logger" doc:id="5aea75b3-e808-43f5-9e93-4fc18099f638" message="#[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="dcbae47a-cc18-4213-b414-27934cab3dc2" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<foreach doc:name="For Each" doc:id="697184be-aaf8-4b21-8811-6b3065770872" batchSize="3">
+			<ee:transform doc:name="Transform Message" doc:id="44cd7756-7c1c-475a-9737-4511cdc5f872">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+import * from dw::core::Strings
+output application/java
+---
+payload map ( payload01 , indexOfPayload01 ) -> {
+	nominativo: (capitalize(payload01.nomedefault "")) ++ " " ++ (capitalize(payload01.cognome)),
+	occupazione: payload01.categoria,
+	livello: payload01.livello,
+	cap: payload01.cap,
+	residenza: upper(payload01.citta)
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<logger level="INFO" doc:name="Logger" doc:id="a9d9d22a-57fc-4bfe-992e-fd74a27cf4f7" message="#[payload.nominativo]"/>
+			<db:bulk-insert doc:name="Bulk insert" doc:id="93ef5a15-6543-4944-b184-351c9f6bbf0d" config-ref="Database_Config_Derby">
+				<db:sql ><![CDATA[INSERT INTO DIPENDENTI(nominativo, occupazione, livello, cap, residenza) 
+VALUES (:nominativo, :occupazione, :livello, :cap, :residenza)]]></db:sql>
+			</db:bulk-insert>
+		</foreach>
+	</flow>
+	<flow name="getalldipendenti" doc:id="f829f887-052a-4981-a97a-553cc31ddd09" >
+		<http:listener doc:name="get dipendenti" doc:id="a61530bf-b1c4-4f61-bbc2-099252a5d199" config-ref="HTTP_Listener_config" path="/dipendenti" allowedMethods="GET"/>
+		<db:select doc:name="Select" doc:id="cf51e8e8-d80b-46c2-a1ff-1ca449b6d2a3" config-ref="Database_Config_Derby">
+			<db:sql ><![CDATA[SELECT * FROM DIPENDENTI]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="411a5180-b70d-4c90-bf0b-f7535f7fdad4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/jSON
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="mule-etlFlow1" doc:id="c6b34598-8a5a-4093-a527-adf8f6df062d" doc:description="se vuoi creare la prima volta una tabella">
+		<http:listener doc:name="GET/create" doc:id="47d2228c-ee6d-4b5f-91de-d72fc2a02f6a" config-ref="HTTP_Listener_config" path="/create" allowedMethods="GET">
+			<http:error-response >
+				<http:body ><![CDATA[#[payload]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<db:execute-ddl doc:name="Execute DDL" doc:id="670f6d64-7ca1-44ce-9067-34dd845010dc" config-ref="Database_Config_Derby">
+			<db:sql ><![CDATA[CREATE TABLE DIPENDENTI (
+    nominativo VARCHAR(100),
+    occupazione VARCHAR(100),
+    livello VARCHAR(100),
+    cap VARCHAR(100),
+    residenza VARCHAR(100)
+    
+)]]></db:sql>
+		</db:execute-ddl>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="b3b908ac-f237-4e05-8fcc-9fbb15f187e9" >
+				<ee:transform doc:name="Transform Message" doc:id="871ce310-24a8-4b78-8527-57c4e2af188c" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Si è verificato un errore nella creazione della tabella." ++ error.description as String
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>
